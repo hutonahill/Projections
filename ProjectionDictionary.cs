@@ -11,7 +11,7 @@ using System.Collections;
 /// <typeparam name="TSource">The source of the inaccessible value.</typeparam>
 public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDictionary<TKey, TValue> {
     private readonly IDictionary<TKey, TSource> _source;
-    private readonly Func<TSource, TValue> _project;
+    private readonly Func<TSource, TValue> _projector;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProjectionDictionary{TKey, TValue, TSource}"/> class.
@@ -20,16 +20,16 @@ public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDicti
     /// <param name="convert">Function to convert the internal source type to the external type.</param>
     public ProjectionDictionary(IDictionary<TKey, TSource> source, Func<TSource, TValue> convert) {
         _source = source;
-        _project = convert;
+        _projector = convert;
     }
 
     /// <inheritdoc/>
-    public TValue this[TKey key] => _project(_source[key]);
+    public TValue this[TKey key] => _projector(_source[key]);
 
     /// <inheritdoc/>
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() {
         foreach (KeyValuePair<TKey, TSource> kvp in _source) {
-            yield return new KeyValuePair<TKey, TValue>(kvp.Key, _project(kvp.Value));
+            yield return new KeyValuePair<TKey, TValue>(kvp.Key, _projector(kvp.Value));
         }
     }
 
@@ -55,7 +55,7 @@ public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDicti
     /// <inheritdoc/>
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) {
         if (_source.TryGetValue(key, out TSource? temp)) {
-            value = _project(temp);
+            value = _projector(temp);
             return true;
         }
 
@@ -72,7 +72,7 @@ public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDicti
             List<TValue> output = new List<TValue>();
 
             foreach (TSource sourceValue in _source.Values) {
-                output.Add(_project(sourceValue));
+                output.Add(_projector(sourceValue));
             }
 
             return output;
