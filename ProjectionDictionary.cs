@@ -69,13 +69,9 @@ public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDicti
     /// <inheritdoc/>
     public IEnumerable<TValue> Values {
         get {
-            List<TValue> output = new List<TValue>();
-
             foreach (TSource sourceValue in _source.Values) {
-                output.Add(_projector(sourceValue));
+                yield return _projector(sourceValue);
             }
-
-            return output;
         }
     }
 }
