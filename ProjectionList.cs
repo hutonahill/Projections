@@ -17,28 +17,32 @@
 // Should the proper rights be acquired, this is provided "as is" without warranty of any kind.
 // -----------------------------------------------------------------------------
 
-using System.Collections;
-
 namespace Projections;
 
+using System.Collections;
+
 /// <summary>
-/// Displays a view of a list.
+/// Displays a view of a list transformed by a projector.
 /// </summary>
 /// <typeparam name="TSource">The type of the source list.</typeparam>
 /// <typeparam name="TValue">The displayed type.</typeparam>
 public class ProjectionList<TSource, TValue>(IList<TSource> source, Func<TSource, TValue> projector)
     : IReadOnlyList<TValue> {
+    /// <inheritdoc/>
     public IEnumerator<TValue> GetEnumerator() {
         foreach (TSource source1 in source) {
             yield return projector(source1);
         }
     }
 
+    /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() {
         return source.GetEnumerator();
     }
 
+    /// <inheritdoc/>
     public int Count => source.Count;
 
+    /// <inheritdoc/>
     public TValue this[int index] => projector(source[index]);
 }
