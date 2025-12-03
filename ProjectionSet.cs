@@ -1,20 +1,23 @@
 ﻿// -----------------------------------------------------------------------------
-// License: All Rights Reserved
+// Project: Projections
 // Copyright (c) 2025
 // Author: Evan Riker
 // GitHub Account: hutonahill
 // Email: evan.k.riker@gmail.com
 // 
-// The Mistborn Deckbuilding Game is the property of Brotherwise Games.
-// The Mistborn setting and themes are the property of Dragonsteel Entertainment.
+// License: GNU General Public License
 // 
-// This code may not be used, copied, modified, or distributed without the
-// express written permission of the copyright holder.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License version 3 as published by
+// the Free Software Foundation.
 // 
-// Any commercial use of this code additionally requires authorization and
-// licensing from Dragonsteel Entertainment and Brotherwise Games.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY, without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 // 
-// Should the proper rights be acquired, this is provided "as is" without warranty of any kind.
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // -----------------------------------------------------------------------------
 
 namespace Projections;
