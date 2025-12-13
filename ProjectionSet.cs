@@ -20,129 +20,134 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // -----------------------------------------------------------------------------
 
-namespace Projections;
-
 using System.Collections;
 
-/// <summary>
-/// Displays the values of a set after they have been changed by a projector.
-/// </summary>
-/// <typeparam name="TSource">The internal value of the set.</typeparam>
-/// <typeparam name="TValue">The external value of the set.</typeparam>
-public class ProjectionSet<TSource, TValue> : IReadOnlySet<TValue> {
-    private readonly ISet<TSource> _source;
-    private readonly Func<TSource, TValue> _projector;
-    private readonly IEqualityComparer<TValue> _comparer;
+namespace Projections;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ProjectionSet{TSource, TValue}"/> class.
-    /// </summary>
-    /// <param name="source">The source set with the data.</param>
-    /// <param name="projector">A projector to convert the internal type to an external type.</param>
-    /// <param name="comparer">optional tool for comparing <see cref="TValue"/>s.</param>
-    public ProjectionSet(
-        ISet<TSource> source, 
-        Func<TSource, TValue> projector,
-        IEqualityComparer<TValue>? comparer = null
-    ) {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _projector = projector ?? throw new ArgumentNullException(nameof(projector));
-        _comparer = comparer ?? EqualityComparer<TValue>.Default;
+public class ProjectionSet<TSource, TValue> : ISet<TValue>, IReadOnlySet<TValue> {
+    private readonly Func<TSource, TValue> _toValue;
+    
+    private readonly Func<TValue, TSource> _toSource;
+    
+    private readonly ISet<TSource> _source;
+    
+    public ProjectionSet(ISet<TSource> source, Projector<TSource, TValue> projector) {
+        _source = source;
+        
+        _toValue = s => (TValue)projector.ConvertToValue(s!)!;
+        _toSource = v => (TSource)projector.ConvertToSource(v!)!;
     }
 
     /// <inheritdoc/>
     public IEnumerator<TValue> GetEnumerator() {
-        foreach (TSource value in _source) {
-            yield return _projector(value);
+        foreach (TSource source in _source) {
+            yield return _toValue(source);
+        }
+    }
+    
+    /// <inheritdoc/>
+    public void ExceptWith(IEnumerable<TValue> other) {
+        _source.ExceptWith(other.Select(tv => _toSource(tv)));
+    }
+
+    /// <inheritdoc/>
+    public void IntersectWith(IEnumerable<TValue> other) {
+        _source.IntersectWith(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool Contains(TValue item) {
+        return _source.Contains(_toSource(item));
+    }
+
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool IsProperSubsetOf(IEnumerable<TValue> other) {
+        return _source.IsProperSubsetOf(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool IsProperSupersetOf(IEnumerable<TValue> other) {
+        return _source.IsProperSupersetOf(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool IsSubsetOf(IEnumerable<TValue> other) {
+        return _source.IsSubsetOf(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool IsSupersetOf(IEnumerable<TValue> other) {
+        return _source.IsSupersetOf(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool Overlaps(IEnumerable<TValue> other) {
+        return _source.Overlaps(other.Select(tv => _toSource(tv)));
+    }
+    
+    /// <inheritdoc cref="ISet{T}"/>
+    public bool SetEquals(IEnumerable<TValue> other) {
+        return _source.SetEquals(other.Select(tv => _toSource(tv)));
+    }
+
+    /// <inheritdoc/>
+    public void SymmetricExceptWith(IEnumerable<TValue> other) {
+        _source.SymmetricExceptWith(other.Select(tv => _toSource(tv)));
+    }
+
+    /// <inheritdoc/>
+    public void UnionWith(IEnumerable<TValue> other) {
+        _source.UnionWith(other.Select(tv => _toSource(tv)));
+    }
+
+    /// <inheritdoc/>
+    public bool Add(TValue item) {
+        return _source.Add(_toSource(item));
+    }
+
+    /// <inheritdoc/>
+    void ICollection<TValue>.Add(TValue item) {
+        Add(item);
+    }
+    
+    /// <inheritdoc/>
+    public void Clear() {
+        _source.Clear();
+    }
+
+    /// <inheritdoc/>
+    public void CopyTo(TValue[] array, int arrayIndex) {
+        if (array == null) {
+            throw new ArgumentNullException(nameof(array));
+        }
+        
+        if (arrayIndex < 0) {
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+        }
+        
+        if (array.Length - arrayIndex < _source.Count) {
+            throw new ArgumentException("Target array is too small.", nameof(array));
+        }
+        
+        int i = arrayIndex;
+        foreach (TSource source in _source) {
+            array[i++] = _toValue(source);
         }
     }
 
     /// <inheritdoc/>
-    IEnumerator IEnumerable.GetEnumerator() {
-        return _source.GetEnumerator();
+    public bool Remove(TValue item) {
+        return _source.Remove(_toSource(item));
     }
 
     /// <inheritdoc/>
+    public bool IsReadOnly => _source.IsReadOnly;
+    
+    /// <inheritdoc cref="ISet{T}"/>
     public int Count => _source.Count;
 
     /// <inheritdoc/>
-    public bool Contains(TValue item) {
-        foreach (TSource s in _source) {
-            if (_comparer.Equals(_projector(s), item)) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool IsProperSubsetOf(IEnumerable<TValue> other) {
-        HashSet<TValue> others = new HashSet<TValue>(other, _comparer);
-        if (Count >= others.Count) {
-            return false;
-        }
-        
-        return IsSubsetOf(others);
-    }
-
-    /// <inheritdoc/>
-    public bool IsProperSupersetOf(IEnumerable<TValue> other) {
-        HashSet<TValue> others = new HashSet<TValue>(other, _comparer);
-        if (Count <= others.Count) {
-            return false;
-        }
-        
-        return IsSupersetOf(others);
-    }
-
-    /// <inheritdoc/>
-    public bool IsSubsetOf(IEnumerable<TValue> other) {
-        HashSet<TValue> others = new HashSet<TValue>(other, _comparer);
-        foreach (TSource s in _source) {
-            if (!others.Contains(_projector(s))) {
-                return false;
-            }
-        }
-        
-        return true;
-    }
-
-    /// <inheritdoc/>
-    public bool IsSupersetOf(IEnumerable<TValue> other) {
-        foreach (TValue v in other) {
-            if (!Contains(v)) {
-                return false;
-            }
-        }
-        
-        return true;
-    }
-
-    /// <inheritdoc/>
-    public bool Overlaps(IEnumerable<TValue> other) {
-        foreach (TValue v in other) {
-            if (Contains(v)) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    /// <inheritdoc/>
-    public bool SetEquals(IEnumerable<TValue> other) {
-        HashSet<TValue> others = new HashSet<TValue>(other, _comparer);
-        if (others.Count != Count) {
-            return false;
-        }
-        
-        foreach (TSource s in _source) {
-            if (!others.Contains(_projector(s))) {
-                return false;
-            }
-        }
-        
-        return true;
+    IEnumerator IEnumerable.GetEnumerator() {
+        return GetEnumerator();
     }
 }

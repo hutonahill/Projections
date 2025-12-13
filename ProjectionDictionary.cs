@@ -22,44 +22,52 @@
 
 namespace Projections;
 
-using System.Diagnostics.CodeAnalysis;
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-/// Displays a view of a dictionary.
+/// A dictionary wrapper that exposes the contents of an underlying 
+/// <see cref="IDictionary{TKey,TSource}"/> as a projected 
+/// <see cref="IDictionary{TKey,TValue}"/> using conversion functions.
+/// <br/>
+/// This allows callers to interact with the dictionary using values of type 
+/// <typeparamref name="TValue"/>, while internally the data is stored in 
+/// <typeparamref name="TSource"/> form.
 /// </summary>
-/// <typeparam name="TKey">The type of the key.</typeparam>
-/// <typeparam name="TValue">The type of the accessible value.</typeparam>
-/// <typeparam name="TSource">The source of the inaccessible value.</typeparam>
-public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDictionary<TKey, TValue> {
+/// <typeparam name="TKey">
+/// The type of the dictionary keys.
+/// </typeparam>
+/// <typeparam name="TValue">
+/// The projected value type visible through this dictionary.
+/// </typeparam>
+/// <typeparam name="TSource">
+/// The underlying value type stored in the wrapped dictionary.
+/// </typeparam>
+public class ProjectionDictionary<TKey, TValue, TSource> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue> {
+    private readonly Func<TSource, TValue> _toValue;
+    
+    private readonly Func<TValue, TSource> _toSource;
+    
     private readonly IDictionary<TKey, TSource> _source;
-    private readonly Func<TSource, TValue> _projector;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProjectionDictionary{TKey, TValue, TSource}"/> class.
     /// </summary>
-    /// <param name="source">The source dictionary.</param>
-    /// <param name="convert">Function to convert the internal source type to the external type.</param>
-    public ProjectionDictionary(IDictionary<TKey, TSource> source, Func<TSource, TValue> convert) {
+    /// <param name="source">The source dictionary this is projecting.</param>
+    /// <param name="projector">a converter for converting between the two.</param>
+    public ProjectionDictionary(IDictionary<TKey, TSource> source, Projector<TSource, TValue> projector) {
         _source = source;
-        _projector = convert;
+        
+        _toValue = s => (TValue)projector.ConvertToValue(s!)!;
+        _toSource = v => (TSource)projector.ConvertToSource(v!)!;
     }
-
-    /// <inheritdoc/>
-    public TValue this[TKey key] => _projector(_source[key]);
 
     /// <inheritdoc/>
     public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() {
-        foreach (KeyValuePair<TKey, TSource> kvp in _source) {
-            yield return new KeyValuePair<TKey, TValue>(kvp.Key, _projector(kvp.Value));
+        foreach (KeyValuePair<TKey, TSource> keyValuePair in _source) {
+            yield return new KeyValuePair<TKey, TValue>(keyValuePair.Key, _toValue(keyValuePair.Value));
         }
     }
-
-    /*// Example use case
-     private static Dictionary<int, int> testSource = new Dictionary<int, int>();
-
-    private static ProjectionDictionary<int, string, int> test = new (testSource,
-        i => i.ToString());*/
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() {
@@ -67,33 +75,127 @@ public sealed class ProjectionDictionary<TKey, TValue, TSource> : IReadOnlyDicti
     }
 
     /// <inheritdoc/>
-    public int Count => _source.Count;
+    public void Add(KeyValuePair<TKey, TValue> item) {
+        _source.Add(item.Key, _toSource(item.Value));
+    }
 
     /// <inheritdoc/>
-    public bool ContainsKey(TKey key) {
+    public void Clear() {
+        _source.Clear();
+    }
+
+    /// <inheritdoc/>
+    public bool Contains(KeyValuePair<TKey, TValue> item) {
+        return _source.Contains(new KeyValuePair<TKey, TSource>(item.Key, _toSource(item.Value)));
+    }
+
+    /// <inheritdoc/>
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) {
+        if (array == null) {
+            throw new ArgumentNullException(nameof(array));
+        }
+        
+        if (arrayIndex < 0) {
+            throw new ArgumentOutOfRangeException(nameof(arrayIndex));
+        }
+        
+        if (array.Length - arrayIndex < _source.Count) {
+            throw new ArgumentException("The target array is too small.", nameof(array));
+        }
+        
+        int i = arrayIndex;
+        foreach (KeyValuePair<TKey, TSource> pair in _source) {
+            array[i++] = new KeyValuePair<TKey, TValue>(pair.Key, _toValue(pair.Value));
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool Remove(KeyValuePair<TKey, TValue> item) {
+        if (!_source.TryGetValue(item.Key, out TSource? sourceValue)) {
+            return false;
+        }
+        
+        TValue current = _toValue(sourceValue);
+        
+        if (!EqualityComparer<TValue>.Default.Equals(current, item.Value)) {
+            return false;
+        }
+        
+        return _source.Remove(item.Key);
+    }
+
+    /// <inheritdoc/>
+    int ICollection<KeyValuePair<TKey, TValue>>.Count => _source.Count;
+
+    /// <inheritdoc/>
+    public bool IsReadOnly => _source.IsReadOnly;
+
+    /// <inheritdoc/>
+    public void Add(TKey key, TValue value) {
+        _source.Add(key, _toSource(value));
+    }
+
+    /// <inheritdoc/>
+    bool IDictionary<TKey, TValue>.ContainsKey(TKey key) {
         return _source.ContainsKey(key);
     }
 
     /// <inheritdoc/>
-    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) {
-        if (_source.TryGetValue(key, out TSource? temp)) {
-            value = _projector(temp);
-            return true;
+    bool IReadOnlyDictionary<TKey, TValue>.TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) {
+        bool output = _source.TryGetValue(key, out TSource? sourceValue);
+        if (sourceValue == null) {
+            value = default;
+            return output;
         }
-
-        value = default;
-        return false;
+        
+        value = _toValue(sourceValue);
+        return output;
     }
 
     /// <inheritdoc/>
-    public IEnumerable<TKey> Keys => _source.Keys;
+    public bool Remove(TKey key) {
+        return _source.Remove(key);
+    }
 
     /// <inheritdoc/>
-    public IEnumerable<TValue> Values {
+    bool IReadOnlyDictionary<TKey, TValue>.ContainsKey(TKey key) {
+        return _source.ContainsKey(key);
+    }
+
+    /// <inheritdoc/>
+    bool IDictionary<TKey, TValue>.TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) {
+        bool output = _source.TryGetValue(key, out TSource? sourceValue);
+        if (sourceValue == null) {
+            value = default;
+            return output;
+        }
+        
+        value = _toValue(sourceValue);
+        return output;
+    }
+    
+    /// <inheritdoc cref = "IDictionary{TKey,TValue}" />
+    public TValue this[TKey key] {
         get {
-            foreach (TSource sourceValue in _source.Values) {
-                yield return _projector(sourceValue);
-            }
+            TSource sourceValue = _source[key];
+            return _toValue(sourceValue);
         }
+        
+        set => _source[key] = _toSource(value);
     }
+
+    /// <inheritdoc/>
+    IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => _source.Keys;
+
+    /// <inheritdoc/>
+    IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => _source.Values.Select(ts => _toValue(ts));
+
+    /// <inheritdoc/>
+    ICollection<TKey> IDictionary<TKey, TValue>.Keys => _source.Keys;
+
+    /// <inheritdoc/>
+    ICollection<TValue> IDictionary<TKey, TValue>.Values => _source.Values.Select(ts => _toValue(ts)).ToList();
+
+    /// <inheritdoc/>
+    int IReadOnlyCollection<KeyValuePair<TKey, TValue>>.Count => _source.Count;
 }

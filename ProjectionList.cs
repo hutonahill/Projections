@@ -23,7 +23,6 @@
 namespace Projections;
 
 using System.Collections;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 /// <summary>
 /// A view of a list that allows it to be edited.
@@ -42,12 +41,12 @@ public class ProjectionList<TSource, TValue> : IList<TValue>, IReadOnlyList<TVal
     /// </summary>
     /// <param name="source">The core data type.</param>
     /// <param name="projector">For converting to and from <see cref="TSource"/> and <see cref="TValue"/>.</param>
-    public ProjectionList(IList<TSource> source, ValueConverter<TSource, TValue> projector) {
+    public ProjectionList(IList<TSource> source, Projector<TSource, TValue> projector) {
         _source = source;
         
         // convert the value convert to to strongly typed versions.
-        _toValue = s => (TValue)projector.ConvertFromProvider(s!)!;
-        _toSource = v => (TSource)projector.ConvertToProvider(v!)!;
+        _toValue = s => (TValue)projector.ConvertToValue(s!)!;
+        _toSource = v => (TSource)projector.ConvertToSource(v!)!;
     }
     
     /// <inheritdoc/>
