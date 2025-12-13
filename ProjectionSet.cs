@@ -20,17 +20,28 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // -----------------------------------------------------------------------------
 
-using System.Collections;
-
 namespace Projections;
 
+using System.Collections;
+
+/// <summary>
+/// A set designed to expose a modified value, instead of the source value.
+/// <br/> Useful for manning private values, while exposing part of the value of a set.
+/// </summary>
+/// <typeparam name="TSource">The type of the internal source.</typeparam>
+/// <typeparam name="TValue">The exposed type.</typeparam>
 public class ProjectionSet<TSource, TValue> : ISet<TValue>, IReadOnlySet<TValue> {
     private readonly Func<TSource, TValue> _toValue;
     
     private readonly Func<TValue, TSource> _toSource;
     
     private readonly ISet<TSource> _source;
-    
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProjectionSet{TSource, TValue}"/> class.
+    /// </summary>
+    /// <param name="source">The source set that is being wrapped.</param>
+    /// <param name="projector">A converter that converts to and from the value of the source.</param>
     public ProjectionSet(ISet<TSource> source, Projector<TSource, TValue> projector) {
         _source = source;
         

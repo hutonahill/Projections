@@ -22,9 +22,20 @@
 
 namespace Projections;
 
+/// <summary>
+/// A converter for one type to another.
+/// </summary>
+/// <typeparam name="TSource">The source type.</typeparam>
+/// <typeparam name="TValue">The value type</typeparam>
 public class Projector<TSource, TValue> {
+    /// <summary>
+    /// A method for converting the source type to the value type.
+    /// </summary>
     public Func<TSource, TValue> ConvertToValue { get; }
     
+    /// <summary>
+    /// A method for converting the value type to the source type.
+    /// </summary>
     public Func<TValue, TSource> ConvertToSource { get; }
     
     public Projector(
